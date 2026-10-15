@@ -37,7 +37,7 @@ To create the distributable ZIP, standalone EXE and SHA256SUMS.txt:
 Package.ps1 copies an explicit allowlist of release files. It excludes
 personal settings, gesture backups and registration records even if they
 exist in `dist/`. Build and test before packaging. Commit the resulting
-`releases/v1.1.1/` files when intentionally updating this release.
+`releases/v1.1.2/` files when intentionally updating this release.
 The build procedure is repeatable; byte-identical PE/ZIP output is not
 promised because toolchain timestamps and ZIP metadata may vary.
 
@@ -47,7 +47,7 @@ promised because toolchain timestamps and ZIP metadata may vary.
 
 - Real recognizer code: tap, four swipes, release timing, repeat suppression,
   disabled state, four contacts, long holds, retouches, spreads and resets.
-- Driver gesture controls: explicit tap neutralization, shared disable,
+- Driver gesture controls: explicit tap neutralization, per-count disable,
   independent 3/4-finger switches, exact restoration, legacy migration and
   missing driver fields.
 - Native launcher: COM factory, interfaces, added page, standard page

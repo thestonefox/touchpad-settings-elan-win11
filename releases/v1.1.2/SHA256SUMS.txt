@@ -1,0 +1,2 @@
+d9b33618803b7353d3967acafe54821285fb435fa3e4febd23914283322b5c11  TouchpadStudio-v1.1.2-windows-x64.zip
+4b8df2d02d1d42a36e9881e790f924aaa18d241bcf54a6d2d464a91b50d256d5  TouchpadStudio.exe

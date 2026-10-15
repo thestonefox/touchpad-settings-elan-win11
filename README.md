@@ -4,7 +4,7 @@ A native, portable touchpad settings app for the **Lenovo V155-15API**
 with the legacy ELAN driver on Windows 11. The application is called
 **Touchpad Studio**.
 
-![Touchpad Studio — simulated contact preview](docs/images/touchpad-studio.png)
+![Touchpad Studio â€” simulated contact preview](docs/images/touchpad-studio.png)
 
 Independent software, unaffiliated with Lenovo, ELAN or Microsoft. This is
 built around one tested driver stack; compatibility with other ELAN laptops
@@ -13,13 +13,13 @@ or install a replacement driver.
 
 ## Download and run
 
-Download the [Windows x64 portable ZIP](releases/v1.1.1/TouchpadStudio-v1.1.1-windows-x64.zip),
+Download the [Windows x64 portable ZIP](releases/v1.1.2/TouchpadStudio-v1.1.2-windows-x64.zip),
 extract it into a folder you can write to, and open **TouchpadStudio.exe**.
 No installation or administrator access is needed for normal use.
 
-You can also download the [standalone EXE](releases/v1.1.1/TouchpadStudio.exe)
+You can also download the [standalone EXE](releases/v1.1.2/TouchpadStudio.exe)
 if you do not want the optional Mouse Properties integration.
-[SHA-256 checksums](releases/v1.1.1/SHA256SUMS.txt) are included.
+[SHA-256 checksums](releases/v1.1.2/SHA256SUMS.txt) are included.
 The binaries are unsigned; Windows may show a reputation prompt.
 
 ## Features
@@ -27,7 +27,8 @@ The binaries are unsigned; Windows may show a reputation prompt.
 - Compact native C++ interface with live positions and trails for up to
   five contacts. The screenshot above uses labelled simulated contacts.
 - Two-finger right-click, pinch zoom, scrolling and scroll direction.
-- Driver-backed three- and four-finger tap and directional swipe actions.
+- Driver-backed three- and four-finger tap and directional swipe actions,
+  with independent enable switches for each finger count.
 - Optional five-finger app shortcuts for desktop, Task view and media.
 - **Apply** saves a validated backup, writes supported settings and reloads
   the current session's ELAN Control process when driver settings change.
