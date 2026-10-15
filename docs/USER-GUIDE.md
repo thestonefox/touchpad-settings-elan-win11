@@ -27,9 +27,14 @@ are inactive while their count is off. The Swipes switch affects only that
 count's swipes; choosing Off for an individual tap also clears its action.
 
 The driver still has a shared multi-finger gate internally. The app keeps
-it enabled whenever either three- or four-finger gestures are enabled,
+it enabled for two-finger scrolling and pinch as well,
 while disabling each count's fields separately. Older shared-off settings
 initialize both switches to off; either count can then be restored alone.
+
+If scrolling/pinch stopped after disabling both groups in an older version,
+the app stages a shared-engine repair at startup or Reset. Click Apply when
+shown **Apply to repair gestures**. Existing two-finger preferences and
+disabled three-/four-finger choices are preserved; no writes happen until Apply.
 
 Driver changes restart only the verified System32 ETDCtrl.exe process in
 the current Windows session. The contact connection pauses and reconnects.
@@ -59,7 +64,7 @@ local; the app has no network client or analytics.
 
 The live view requires ETDApi.dll 11.9.4.1. A missing or different version
 disables contact capture and custom five-finger gestures. Compatible
-registry settings can still be edited. Use **â€¦ â†’ Reconnect live view**
+registry settings can still be edited. Use **ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Reconnect live view**
 if necessary. Do not replace vendor DLLs just to match this app.
 
 ## Backups and restore
@@ -68,7 +73,7 @@ Apply first saves the current SmartPad registry values with their original
 types and bytes, plus applied five-finger app settings, into **ELAN-backups/**.
 Each `.elanbackup` is tied to the Windows user who created it.
 
-Use **â€¦ â†’ Load a backupâ€¦** to stage supported values from a backup, then
+Use **ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Load a backupÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦** to stage supported values from a backup, then
 click Apply to restore them. Loading alone does not change saved settings.
 The app writes only its supported gesture allowlist; a full snapshot does
 not mean arbitrary registry values can be restored through the UI.

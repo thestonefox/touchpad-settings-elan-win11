@@ -831,6 +831,7 @@ Snapshot Changes() {
     }
     return c;
 }
+void StageSharedGateRepair();
 void Reset() {
     saved = ReadSettings();
     if (!driverStateKnown) {
@@ -853,7 +854,8 @@ void Reset() {
         if (i == 0 && available[i])
             toggles[i] = toggles[i] && Number(saved.at(L"Tap_Two_Finger")) == 1;
     }
-    status = L"Up to date";
+    StageSharedGateRepair();
+    status = Changes().empty() ? L"Up to date" : L"Apply to repair gestures";
 }
 
 bool Dirty() {
@@ -906,9 +908,18 @@ void SetFingerGroup(int fingers, bool enabled) {
     pendingSuspended.erase(L"MultiFingerGesture_Enable");
     auto master = values.find(L"MultiFingerGesture_Enable");
     if (master != values.end())
-        master->second = pendingDriverEnabled[0] || pendingDriverEnabled[1];
+        master->second = 1; // Also required by two-finger scrolling and pinch.
     for (const auto &kv : values)
         SetDriver(kv.first, kv.second);
+}
+void StageSharedGateRepair() {
+    if (!DriverAvailable(L"MultiFingerGesture_Enable") ||
+        DriverNumber(L"MultiFingerGesture_Enable") != 0)
+        return;
+    // Stage a repair only. Apply still owns all registry writes and backups.
+    // Preserve disabled groups before reopening the common gesture engine.
+    SetFingerGroup(3, pendingDriverEnabled[0]);
+    SetFingerGroup(4, pendingDriverEnabled[1]);
 }
 void SetGestureAction(int slot, int value) {
     if (!FingerGroupEnabled() || slot < 0 || slot >= 5)
@@ -1326,6 +1337,7 @@ void LoadBackup() {
             }
         if (source.count(L"Tap_Two_Finger"))
             loadedAction = Number(source.at(L"Tap_Two_Finger"));
+        StageSharedGateRepair();
         status = Dirty() ? L"Backup loaded" : L"Backup matches";
     } catch (const std::exception &e) {
         Error(e);
@@ -1575,14 +1587,14 @@ int SelfTest(const std::wstring &path) {
     try {
         Reset();
         Snapshot original = saved;
+        Snapshot initialChanges = Changes();
         bool all = true;
         for (bool a : available)
             all = all && a;
         log << L"All six settings available: " << all << L"\n";
         if (!all)
             throw std::runtime_error("A setting is unavailable");
-        if (!Changes().empty())
-            throw std::runtime_error("Initial state is dirty");
+        log << L"Shared gesture engine repair staged: " << !initialChanges.empty() << L"\n";
         for (int i = 0; i < 6; ++i) {
             toggles[i] = !toggles[i];
             auto c = Changes();
@@ -1598,7 +1610,7 @@ int SelfTest(const std::wstring &path) {
             (!action.count(L"Tap_Two_Finger") || Number(action.at(L"Tap_Two_Finger")) != 7))
             throw std::runtime_error("Backup action staging failed");
         Reset();
-        if (!Changes().empty() || loadedAction != -1)
+        if (Changes() != initialChanges || loadedAction != -1)
             throw std::runtime_error("Reset failed");
         log << L"Reset and backup staging: PASS\n";
         auto encoded = Encode(saved);

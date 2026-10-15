@@ -26,7 +26,8 @@ codes are explicit in src/TouchpadStudio.cpp; unknown values are rejected.
 The three- and four-finger groups have independent app switches. Each
 explicitly disables only its supported tap/swipe enable fields and replaces
 its tap action with 7 (No action). The common MultiFingerGesture_Enable
-field stays on while either group is enabled. Per-count switch states and
+field stays on for two-finger scrolling and pinch even when both groups
+are disabled. Per-count switch states and
 remembered choices are stored in private local settings and typed backups;
 reenabling one group restores only that group's choices. Older shared-off
 files initialize both groups as disabled and retain their saved choices.
@@ -53,7 +54,7 @@ Vendor binaries, INF files and disassemblies are not included here.
 Only these exports are used: EstablishConnection, GetTouchPadSize,
 GetCurrentReportIndex, AcquireFingerReport and TerminateConnection.
 The inspected contact record is 64 bytes with five 12-byte contact slots.
-The tested sensor reports 3209 Ã— 2097 coordinates. The app polls contact
+The tested sensor reports 3209 Ãƒâ€” 2097 coordinates. The app polls contact
 reports, preserves intervening frames and normalizes sensor positions.
 A different/missing API disables capture and the custom recognizer.
 

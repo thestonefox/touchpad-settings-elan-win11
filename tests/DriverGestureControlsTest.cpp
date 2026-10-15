@@ -19,7 +19,9 @@ static void Check(bool condition, const char *message) {
 static DriverValues Original() {
     DriverValues values{{L"MultiFingerGesture_Enable", 1},
                         {L"Tap_Two_Finger", 1}, {L"Zoom_Enable", 1},
-                        {L"SC_Enable", 1}, {L"Unknown_Enable", 1}};
+                        {L"SC_Enable", 1}, {L"SC_V_Enable", 1}, {L"SC_H_Enable", 1},
+                        {L"SC_Reverse_Enable", 0}, {L"Tap_Two_Finger_Enable", 1},
+                        {L"Unknown_Enable", 1}};
     for (int fingers : {3, 4}) {
         auto gestures = DriverGestures(fingers);
         for (int slot = 0; slot < 5; ++slot) {
@@ -100,7 +102,11 @@ int main() {
     Seed(original);
     SetFingerGroup(3, false);
     SetFingerGroup(4, false);
-    Check(DriverNumber(L"MultiFingerGesture_Enable") == 0, "both groups off closes common gate");
+    Check(DriverNumber(L"MultiFingerGesture_Enable") == 1,
+          "both groups off preserves shared engine for scrolling and pinch");
+    for (const auto *name : {L"Zoom_Enable", L"SC_Enable", L"SC_V_Enable",
+                             L"SC_H_Enable", L"SC_Reverse_Enable", L"Tap_Two_Finger_Enable"})
+        Check(DriverNumber(name) == original.at(name), "two-finger preferences stay unchanged");
     SimulateApplyAndRestart();
     SetFingerGroup(3, true);
     Check(pendingDriverEnabled == std::array<bool, 2>{true, false}, "only three fingers reenabled");
@@ -138,6 +144,32 @@ int main() {
     SetFingerGroup(4, true);
     Check(DriverNumber(L"Tap_Three_Finger") == 7 && DriverNumber(L"Tap_Four_Finger") == 2561,
           "enabling one legacy group neutralizes disabled sibling even without saved metadata");
+
+    Seed(original, {false, false});
+    saved[L"MultiFingerGesture_Enable"] = Dword(0);
+    StageSharedGateRepair();
+    Check(saved.at(L"MultiFingerGesture_Enable") == Dword(0), "repair does not write saved state");
+    Check(Changes().at(L"MultiFingerGesture_Enable") == Dword(1), "repair reopens shared engine");
+    Check(pendingDriverEnabled == std::array<bool, 2>{false, false}, "repair keeps both counts off");
+    Check(DriverNumber(L"Tap_Three_Finger") == 7 && DriverNumber(L"Tap_Four_Finger") == 7,
+          "repair does not revive Search or other disabled taps");
+    Check(DriverNumber(L"ThreeFingerMove_Enable") == 0 &&
+          DriverNumber(L"FourFingerMove_Enable") == 0, "repair keeps swipes disabled");
+    for (const auto *name : {L"Zoom_Enable", L"SC_Enable", L"SC_V_Enable", L"SC_H_Enable"})
+        Check(DriverNumber(name) == 1, "repair preserves enabled two-finger functions");
+    Check(Dirty(), "repair makes Apply available");
+    const auto repair = extra;
+    StageSharedGateRepair();
+    Check(extra == repair, "repair is idempotent");
+    SimulateApplyAndRestart();
+    Check(!Dirty(), "committed repair does not keep staging changes");
+    auto offPreferences = original;
+    offPreferences[L"Zoom_Enable"] = offPreferences[L"SC_Enable"] = 0;
+    Seed(offPreferences);
+    SetFingerGroup(3, false);
+    SetFingerGroup(4, false);
+    Check(DriverNumber(L"Zoom_Enable") == 0 && DriverNumber(L"SC_Enable") == 0,
+          "repair does not turn on two-finger options the user disabled");
 
     DriverValues partial{{L"Tap_Three_Finger", 2561}}, remembered;
     SetFingerGroupEnabled(partial, remembered, 3, false);
