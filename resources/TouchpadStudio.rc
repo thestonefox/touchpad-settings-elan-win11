@@ -1,0 +1,29 @@
+#include <windows.h>
+101 ICON "TouchpadStudio.ico"
+1 RT_MANIFEST "TouchpadStudio.manifest"
+1 VERSIONINFO
+ FILEVERSION 1,1,0,0
+ PRODUCTVERSION 1,1,0,0
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0
+ FILEOS 0x40004L
+ FILETYPE 1
+BEGIN
+ BLOCK "StringFileInfo"
+ BEGIN
+  BLOCK "080904B0"
+  BEGIN
+   VALUE "FileDescription", "Touchpad Studio"
+   VALUE "FileVersion", "1.1.0"
+   VALUE "ProductName", "Touchpad Studio"
+   VALUE "ProductVersion", "1.1.0"
+   VALUE "OriginalFilename", "TouchpadStudio.exe"
+   VALUE "Comments", "Independent ELAN settings utility"
+  END
+ END
+ BLOCK "VarFileInfo"
+ BEGIN
+  VALUE "Translation", 0x809, 1200
+ END
+END
+
