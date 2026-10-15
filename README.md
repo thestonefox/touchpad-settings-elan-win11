@@ -13,14 +13,18 @@ or install a replacement driver.
 
 ## Download and run
 
-Download the [Windows x64 portable ZIP](releases/v1.1.2/TouchpadStudio-v1.1.2-windows-x64.zip),
+Download the [Windows x64 portable ZIP](releases/v1.1.3/TouchpadStudio-v1.1.3-windows-x64.zip),
 extract it into a folder you can write to, and open **TouchpadStudio.exe**.
 No installation or administrator access is needed for normal use.
 
-You can also download the [standalone EXE](releases/v1.1.2/TouchpadStudio.exe)
+You can also download the [standalone EXE](releases/v1.1.3/TouchpadStudio.exe)
 if you do not want the optional Mouse Properties integration.
-[SHA-256 checksums](releases/v1.1.2/SHA256SUMS.txt) are included.
+[SHA-256 checksums](releases/v1.1.3/SHA256SUMS.txt) are included.
 The binaries are unsigned; Windows may show a reputation prompt.
+
+If scrolling or pinch stopped after disabling three-/four-finger gestures
+in an older version, open this version and click **Apply** when it shows
+**Apply to repair gestures**. Your individual two-finger choices are preserved.
 
 ## Features
 

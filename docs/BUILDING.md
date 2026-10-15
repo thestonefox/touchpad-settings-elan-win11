@@ -37,7 +37,7 @@ To create the distributable ZIP, standalone EXE and SHA256SUMS.txt:
 Package.ps1 copies an explicit allowlist of release files. It excludes
 personal settings, gesture backups and registration records even if they
 exist in `dist/`. Build and test before packaging. Commit the resulting
-`releases/v1.1.2/` files when intentionally updating this release.
+`releases/v1.1.3/` files when intentionally updating this release.
 The build procedure is repeatable; byte-identical PE/ZIP output is not
 promised because toolchain timestamps and ZIP metadata may vary.
 

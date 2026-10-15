@@ -11,8 +11,8 @@ BEGIN
  LTEXT "", 1002, 16, 172, 218, 16
 END
 1 VERSIONINFO
- FILEVERSION 1,1,2,0
- PRODUCTVERSION 1,1,2,0
+ FILEVERSION 1,1,3,0
+ PRODUCTVERSION 1,1,3,0
  FILEFLAGSMASK 0x3fL
  FILEFLAGS 0
  FILEOS 0x40004L
@@ -23,7 +23,7 @@ BEGIN
   BLOCK "080904B0"
   BEGIN
    VALUE "FileDescription", "Touchpad Studio Mouse Properties launcher"
-   VALUE "FileVersion", "1.1.2"
+   VALUE "FileVersion", "1.1.3"
    VALUE "ProductName", "Touchpad Studio"
    VALUE "Comments", "Independent per-user launcher; no driver functionality"
   END
