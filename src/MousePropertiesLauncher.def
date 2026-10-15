@@ -1,0 +1,4 @@
+LIBRARY TouchpadStudio.MouseProperties
+EXPORTS
+    DllCanUnloadNow
+    DllGetClassObject

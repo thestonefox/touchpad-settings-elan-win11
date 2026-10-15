@@ -1,0 +1,35 @@
+#include <windows.h>
+201 DIALOGEX 0, 0, 252, 200
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
+EXSTYLE WS_EX_CONTROLPARENT
+FONT 9, "Segoe UI"
+BEGIN
+ LTEXT "Touchpad Studio", 1100, 16, 18, 220, 16
+ LTEXT "Configure your touchpad gestures and see live finger positions.", 1101, 16, 44, 218, 28
+ PUSHBUTTON "Open Touchpad Studio", 1001, 16, 88, 148, 24, WS_TABSTOP
+ LTEXT "Two-, three-, four- and five-finger controls are available inside the app.", 1102, 16, 130, 218, 28
+ LTEXT "", 1002, 16, 172, 218, 16
+END
+1 VERSIONINFO
+ FILEVERSION 1,1,0,0
+ PRODUCTVERSION 1,1,0,0
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0
+ FILEOS 0x40004L
+ FILETYPE 2
+BEGIN
+ BLOCK "StringFileInfo"
+ BEGIN
+  BLOCK "080904B0"
+  BEGIN
+   VALUE "FileDescription", "Touchpad Studio Mouse Properties launcher"
+   VALUE "FileVersion", "1.1.0"
+   VALUE "ProductName", "Touchpad Studio"
+   VALUE "Comments", "Independent per-user launcher; no driver functionality"
+  END
+ END
+ BLOCK "VarFileInfo"
+ BEGIN
+  VALUE "Translation", 0x809, 1200
+ END
+END
