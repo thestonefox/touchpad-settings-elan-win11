@@ -42,4 +42,3 @@ try {
     $env:ZIG_GLOBAL_CACHE_DIR = $oldGlobal
     $env:ZIG_LOCAL_CACHE_DIR = $oldLocal
 }
-
