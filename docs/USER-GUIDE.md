@@ -16,15 +16,20 @@ master settings. The master switches control actual gesture behaviour.
 Unavailable or unsupported registry values are not invented by the app.
 Legacy actions are labelled because the driver predates Windows 11.
 
-**Multi-finger gestures** is shared by the 3- and 4-finger tabs. Turning it
-off and clicking Apply disables both counts' taps and swipes. Tap actions
-are explicitly set to No action because some ELAN drivers ignore their
-enable flags. The previous assignments and enable states are remembered
-in TouchpadStudio.settings, including across app restarts, and restored
-when the shared switch is enabled and applied again. Individual controls
-are inactive while the shared switch is off. The Swipes switch affects
-only that tab's swipes; choosing Off for an individual tap also clears its
-driver action. Five-finger app shortcuts have their own separate switch.
+Each tab has its own **Enable 3-finger gestures** or **Enable 4-finger
+gestures** switch. Turning one off and clicking Apply disables only that
+count's taps and swipes. The other count and five-finger shortcuts remain
+independent. Tap actions are explicitly set to No action because some
+ELAN drivers ignore their enable flags. Previous assignments and enable
+states are remembered in TouchpadStudio.settings across app restarts and
+restored when that count is enabled and applied again. Individual controls
+are inactive while their count is off. The Swipes switch affects only that
+count's swipes; choosing Off for an individual tap also clears its action.
+
+The driver still has a shared multi-finger gate internally. The app keeps
+it enabled whenever either three- or four-finger gestures are enabled,
+while disabling each count's fields separately. Older shared-off settings
+initialize both switches to off; either count can then be restored alone.
 
 Driver changes restart only the verified System32 ETDCtrl.exe process in
 the current Windows session. The contact connection pauses and reconnects.
@@ -48,7 +53,7 @@ local; the app has no network client or analytics.
 
 The live view requires ETDApi.dll 11.9.4.1. A missing or different version
 disables contact capture and custom five-finger gestures. Compatible
-registry settings can still be edited. Use **… → Reconnect live view**
+registry settings can still be edited. Use **â€¦ â†’ Reconnect live view**
 if necessary. Do not replace vendor DLLs just to match this app.
 
 ## Backups and restore
@@ -57,7 +62,7 @@ Apply first saves the current SmartPad registry values with their original
 types and bytes, plus applied five-finger app settings, into **ELAN-backups/**.
 Each `.elanbackup` is tied to the Windows user who created it.
 
-Use **… → Load a backup…** to stage supported values from a backup, then
+Use **â€¦ â†’ Load a backupâ€¦** to stage supported values from a backup, then
 click Apply to restore them. Loading alone does not change saved settings.
 The app writes only its supported gesture allowlist; a full snapshot does
 not mean arbitrary registry values can be restored through the UI.

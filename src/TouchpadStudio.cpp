@@ -189,7 +189,26 @@ bool ValidValue(const std::wstring &n, const Value &v) {
 }
 FiveConfig appliedFive, pendingFive;
 DriverValues appliedSuspended, pendingSuspended;
+std::array<bool, 2> appliedDriverEnabled{true, true}, pendingDriverEnabled{true, true};
+bool driverStateKnown = false;
+const wchar_t *DriverEnableNames[] = {L"@Studio.ThreeEnabled", L"@Studio.FourEnabled"};
 const std::wstring SuspendedPrefix = L"@Studio.Suspended.";
+std::array<bool, 2> DecodeDriverEnabled(const Snapshot &s, std::array<bool, 2> fallback) {
+    if (bool(s.count(DriverEnableNames[0])) != bool(s.count(DriverEnableNames[1])))
+        throw std::runtime_error("Incomplete finger group enable settings");
+    auto master = s.find(L"MultiFingerGesture_Enable");
+    if (master != s.end() && ValidValue(master->first, master->second))
+        fallback.fill(Number(master->second) != 0);
+    for (int i = 0; i < 2; ++i) {
+        auto value = s.find(DriverEnableNames[i]);
+        if (value != s.end()) {
+            if (Number(value->second) > 1)
+                throw std::runtime_error("Invalid finger group enable setting");
+            fallback[i] = Number(value->second) != 0;
+        }
+    }
+    return fallback;
+}
 DriverValues DecodeSuspended(const Snapshot &s) {
     DriverValues result;
     for (const auto &kv : s) {
@@ -201,6 +220,14 @@ DriverValues DecodeSuspended(const Snapshot &s) {
         result[name] = Number(kv.second);
     }
     return result;
+}
+std::array<bool, 2> InitialDriverEnabled(const Snapshot &s, const DriverValues &suspended) {
+    auto enabled = DecodeDriverEnabled(s, {true, true});
+    for (const auto &kv : suspended)
+        for (int fingers : {3, 4})
+            if (FingerGroupField(kv.first, fingers))
+                enabled[fingers - 3] = false;
+    return enabled;
 }
 const wchar_t *FiveTitles[] = {
     L"Off",  L"Show desktop", L"Task view",   L"Previous desktop", L"Next desktop", L"Play / pause",
@@ -214,6 +241,8 @@ Snapshot WithAppSettings(const Snapshot &in) {
         out[FiveNames[i]] = Dword(appliedFive.actions[i]);
     for (const auto &kv : appliedSuspended)
         out[SuspendedPrefix + kv.first] = Dword(kv.second);
+    for (int i = 0; i < 2; ++i)
+        out[DriverEnableNames[i]] = Dword(appliedDriverEnabled[i]);
     return out;
 }
 FiveConfig DecodeFive(const Snapshot &s, const FiveConfig &fallback) {
@@ -438,6 +467,7 @@ std::vector<BYTE> ReadBytes(const std::wstring &path) {
     return b;
 }
 void ReadLocal() {
+    driverStateKnown = false;
     std::wstring file = AppDir() + L"\\TouchpadStudio.settings";
     if (GetFileAttributesW(file.c_str()) == INVALID_FILE_ATTRIBUTES) {
         appliedFive = {};
@@ -447,14 +477,19 @@ void ReadLocal() {
     auto data = Decode(ReadBytes(file));
     appliedFive = DecodeFive(data, {});
     appliedSuspended = DecodeSuspended(data);
+    appliedDriverEnabled = DecodeDriverEnabled(data, {true, true});
+    driverStateKnown = data.count(DriverEnableNames[0]) || data.count(DriverEnableNames[1]);
 }
-void WriteLocal(const FiveConfig &cfg, const DriverValues &suspended) {
+void WriteLocal(const FiveConfig &cfg, const DriverValues &suspended,
+                const std::array<bool, 2> &driverEnabled) {
     Snapshot data;
     data[L"@Studio.FiveEnabled"] = Dword(cfg.enabled);
     for (int i = 0; i < 5; ++i)
         data[FiveNames[i]] = Dword(cfg.actions[i]);
     for (const auto &kv : suspended)
         data[SuspendedPrefix + kv.first] = Dword(kv.second);
+    for (int i = 0; i < 2; ++i)
+        data[DriverEnableNames[i]] = Dword(driverEnabled[i]);
     auto b = Encode(data);
     std::wstring file = AppDir() + L"\\TouchpadStudio.settings",
                  tmp = file + L".tmp-" + std::to_wstring(GetCurrentProcessId());
@@ -792,9 +827,14 @@ Snapshot Changes() {
 }
 void Reset() {
     saved = ReadSettings();
+    if (!driverStateKnown) {
+        appliedDriverEnabled = InitialDriverEnabled(saved, appliedSuspended);
+        driverStateKnown = true;
+    }
     extra.clear();
     pendingFive = appliedFive;
     pendingSuspended = appliedSuspended;
+    pendingDriverEnabled = appliedDriverEnabled;
     loadedAction = -1;
     for (int i = 0; i < 6; ++i) {
         auto it = saved.find(Settings[i].name);
@@ -811,7 +851,8 @@ void Reset() {
 }
 
 bool Dirty() {
-    return !Changes().empty() || pendingFive != appliedFive || pendingSuspended != appliedSuspended;
+    return !Changes().empty() || pendingFive != appliedFive || pendingSuspended != appliedSuspended ||
+           pendingDriverEnabled != appliedDriverEnabled;
 }
 DWORD DriverNumber(const std::wstring &n) {
     auto x = extra.find(n);
@@ -838,22 +879,35 @@ void SetDriver(const std::wstring &n, DWORD x) {
         throw std::runtime_error("This driver setting is unavailable");
     extra[n] = Dword(x);
 }
-bool MultiFingerEnabled() {
+bool FingerGroupEnabled() {
     return DriverAvailable(L"MultiFingerGesture_Enable") &&
-           DriverNumber(L"MultiFingerGesture_Enable") != 0;
+           pendingDriverEnabled[page == 1 ? 0 : 1];
 }
-void SetMultiFinger(bool enabled) {
+void SetFingerGroup(int fingers, bool enabled) {
+    if (fingers != 3 && fingers != 4)
+        return;
     DriverValues values;
     for (const auto &kv : saved)
         if (MultiFingerField(kv.first) && DriverAvailable(kv.first))
             values[kv.first] = DriverNumber(kv.first);
-    SetMultiFingerEnabled(values, pendingSuspended, enabled);
+    pendingDriverEnabled[fingers - 3] = enabled;
+    SetFingerGroupEnabled(values, pendingSuspended, fingers, enabled);
+    // A legacy shared-off configuration may still contain active assignments.
+    // Neutralize any disabled sibling before enabling the common driver gate.
+    for (int count : {3, 4})
+        if (!pendingDriverEnabled[count - 3])
+            SetFingerGroupEnabled(values, pendingSuspended, count, false);
+    pendingSuspended.erase(L"MultiFingerGesture_Enable");
+    auto master = values.find(L"MultiFingerGesture_Enable");
+    if (master != values.end())
+        master->second = pendingDriverEnabled[0] || pendingDriverEnabled[1];
     for (const auto &kv : values)
         SetDriver(kv.first, kv.second);
 }
 void SetGestureAction(int slot, int value) {
-    if (!MultiFingerEnabled() || slot < 0 || slot >= 5)
+    if (!FingerGroupEnabled() || slot < 0 || slot >= 5)
         return;
+    SetFingerGroup(page == 1 ? 3 : 4, true);
     auto g = DriverGestures(page == 1 ? 3 : 4)[slot];
     SetDriver(g.enable, value < 0 ? 0 : 1);
     // Some ELAN builds execute tap actions even with the tap enable bit
@@ -950,7 +1004,7 @@ void ChooseAction(int row) {
     int slot = local ? row - 1 : row - 2;
     if (slot < 0 || slot >= 5)
         return;
-    if (!local && !MultiFingerEnabled())
+    if (!local && !FingerGroupEnabled())
         return;
     HMENU m = CreatePopupMenu();
     std::vector<int> codes;
@@ -1105,17 +1159,18 @@ void Draw(ID2D1RenderTarget *t) {
             }
         } else if (i < 2) {
             std::wstring n = i == 0 ? L"MultiFingerGesture_Enable" : MasterName();
-            label = i == 0 ? L"Multi-finger gestures" : L"Swipes";
+            label = i == 0 ? (page == 1 ? L"Enable 3-finger gestures" : L"Enable 4-finger gestures")
+                           : L"Swipes";
             valid = DriverAvailable(n);
             if (i == 1)
-                valid = valid && MultiFingerEnabled();
-            on = valid && DriverNumber(n) == 1;
+                valid = valid && FingerGroupEnabled();
+            on = valid && (i == 0 ? FingerGroupEnabled() : DriverNumber(n) == 1);
         } else {
             auto g = DriverGestures(page == 1 ? 3 : 4)[i - 2];
             label = g.title;
-            valid = MultiFingerEnabled() && DriverAvailable(g.action) && DriverAvailable(g.enable);
+            valid = FingerGroupEnabled() && DriverAvailable(g.action) && DriverAvailable(g.enable);
             action = valid ? (DriverNumber(g.enable) ? ActionTitle(DriverNumber(g.action)) : L"Off")
-                           : MultiFingerEnabled() ? L"Unavailable" : L"Off";
+                           : FingerGroupEnabled() ? L"Unavailable" : L"Off";
         }
         if (hover == i)
             Fill(t, R(sx - 5, y - 3, sw + 9, 35), 0x19212D, 6);
@@ -1165,7 +1220,8 @@ void Apply() {
         return;
     auto changes = Changes();
     auto before = saved;
-    bool localChanged = pendingFive != appliedFive || pendingSuspended != appliedSuspended;
+    bool localChanged = pendingFive != appliedFive || pendingSuspended != appliedSuspended ||
+                        pendingDriverEnabled != appliedDriverEnabled;
     busy = true;
     status = L"Applying...";
     InvalidateRect(window, nullptr, FALSE);
@@ -1176,7 +1232,7 @@ void Apply() {
         wrote = true;
         if (localChanged) {
             try {
-                WriteLocal(pendingFive, pendingSuspended);
+                WriteLocal(pendingFive, pendingSuspended, pendingDriverEnabled);
             } catch (...) {
                 if (!changes.empty()) {
                     Snapshot undo;
@@ -1189,6 +1245,7 @@ void Apply() {
             }
             appliedFive = pendingFive;
             appliedSuspended = pendingSuspended;
+            appliedDriverEnabled = pendingDriverEnabled;
         }
         fiveEngine.Reset();
         if (!changes.empty()) {
@@ -1241,9 +1298,11 @@ void LoadBackup() {
             throw std::runtime_error("Backup is missing the tap action");
         auto five = DecodeFive(source, appliedFive);
         auto suspended = DecodeSuspended(source);
+        auto driverEnabled = DecodeDriverEnabled(source, appliedDriverEnabled);
         Reset();
         pendingFive = five;
         pendingSuspended = suspended;
+        pendingDriverEnabled = driverEnabled;
         for (auto &kv : source)
             if (Allowed(kv.first) && DriverAvailable(kv.first)) {
                 bool basic = false;
@@ -1338,8 +1397,8 @@ void Activate(int id) {
             } else if (id < 2) {
                 std::wstring n = id == 0 ? L"MultiFingerGesture_Enable" : MasterName();
                 if (id == 0 && DriverAvailable(n)) {
-                    SetMultiFinger(!MultiFingerEnabled());
-                } else if (id == 1 && MultiFingerEnabled() && DriverAvailable(n)) {
+                    SetFingerGroup(page == 1 ? 3 : 4, !FingerGroupEnabled());
+                } else if (id == 1 && FingerGroupEnabled() && DriverAvailable(n)) {
                     DWORD value = DriverNumber(n) ? 0 : 1;
                     SetDriver(n, value);
                 }

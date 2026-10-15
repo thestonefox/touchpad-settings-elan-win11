@@ -7,32 +7,43 @@ namespace app {
 using DriverValues = std::map<std::wstring, uint32_t>;
 constexpr uint32_t DriverNoAction = 7;
 
-inline bool MultiFingerField(const std::wstring &name) {
-    if (name == L"MultiFingerGesture_Enable")
+inline bool FingerGroupField(const std::wstring &name, int fingers) {
+    if (fingers != 3 && fingers != 4)
+        return false;
+    const std::wstring count = fingers == 3 ? L"Three" : L"Four";
+    const std::wstring tap = L"Tap_" + count + L"_Finger";
+    const std::wstring move = count + L"FingerMove";
+    if (name == tap || name == tap + L"_Enable" || name == move + L"_Enable")
         return true;
-    for (const auto *count : {L"Three", L"Four"}) {
-        const std::wstring tap = std::wstring(L"Tap_") + count + L"_Finger";
-        const std::wstring move = std::wstring(count) + L"FingerMove";
-        if (name == tap || name == tap + L"_Enable" || name == move + L"_Enable")
+    for (const auto *direction : {L"Up", L"Down", L"Left", L"Right"})
+        if (name == move + direction + L"_Func" || name == move + direction + L"_Enable")
             return true;
-        for (const auto *direction : {L"Up", L"Down", L"Left", L"Right"})
-            if (name == move + direction + L"_Func" || name == move + direction + L"_Enable")
-                return true;
-    }
     return false;
+}
+inline bool MultiFingerField(const std::wstring &name) {
+    return name == L"MultiFingerGesture_Enable" || FingerGroupField(name, 3) ||
+           FingerGroupField(name, 4);
 }
 
 // Work only with validated fields supplied by the caller. Missing driver values
-// are never invented. Remember the user's choices until the master is enabled.
-inline void SetMultiFingerEnabled(DriverValues &values, DriverValues &remembered, bool enabled) {
+// are never invented. Remember choices until this finger count is enabled.
+inline void SetFingerGroupEnabled(DriverValues &values, DriverValues &remembered,
+                                  int fingers, bool enabled) {
+    if (fingers != 3 && fingers != 4)
+        return;
     if (enabled) {
-        for (const auto &entry : remembered)
-            if (MultiFingerField(entry.first) && values.count(entry.first))
-                values[entry.first] = entry.second;
-        remembered.clear();
+        for (auto it = remembered.begin(); it != remembered.end();) {
+            if (!FingerGroupField(it->first, fingers)) {
+                ++it;
+                continue;
+            }
+            if (values.count(it->first))
+                values[it->first] = it->second;
+            it = remembered.erase(it);
+        }
     } else {
         for (auto &entry : values) {
-            if (!MultiFingerField(entry.first))
+            if (!FingerGroupField(entry.first, fingers))
                 continue;
             remembered.emplace(entry.first, entry.second);
             if (entry.first == L"Tap_Three_Finger" || entry.first == L"Tap_Four_Finger")
@@ -42,8 +53,5 @@ inline void SetMultiFingerEnabled(DriverValues &values, DriverValues &remembered
                 entry.second = 0;
         }
     }
-    auto master = values.find(L"MultiFingerGesture_Enable");
-    if (master != values.end())
-        master->second = enabled ? 1 : 0;
 }
 } // namespace app

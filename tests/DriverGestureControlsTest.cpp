@@ -16,121 +16,149 @@ static void Check(bool condition, const char *message) {
     }
 }
 
-int main() {
-    const DriverValues original = {
-        {L"MultiFingerGesture_Enable", 1},
-        {L"Tap_Three_Finger", 2561}, {L"Tap_Three_Finger_Enable", 1},
-        {L"Tap_Four_Finger", 19}, {L"Tap_Four_Finger_Enable", 0},
-        {L"ThreeFingerMove_Enable", 1}, {L"FourFingerMove_Enable", 0},
-        {L"ThreeFingerMoveUp_Func", 2569}, {L"ThreeFingerMoveUp_Enable", 1},
-        {L"FourFingerMoveRight_Func", 2574}, {L"FourFingerMoveRight_Enable", 0},
-        {L"Tap_Two_Finger", 1}, {L"Tap_Two_Finger_Enable", 1},
-        {L"Zoom_Enable", 1}, {L"SC_Enable", 1}, {L"Unknown_Enable", 1}};
-    auto values = original;
-    DriverValues remembered;
-    SetMultiFingerEnabled(values, remembered, false);
-    Check(values.at(L"Tap_Three_Finger") == 7, "Search tap is neutralized, not just disabled");
-    Check(values.at(L"Tap_Four_Finger") == 7, "four-finger tap also neutralized");
-    Check(values.at(L"Tap_Three_Finger_Enable") == 0 &&
-          values.at(L"Tap_Four_Finger_Enable") == 0, "both tap flags disabled");
-    Check(values.at(L"MultiFingerGesture_Enable") == 0 &&
-          values.at(L"ThreeFingerMove_Enable") == 0 &&
-          values.at(L"FourFingerMove_Enable") == 0, "master and swipe switches disabled");
-    Check(values.at(L"ThreeFingerMoveUp_Enable") == 0 &&
-          values.at(L"FourFingerMoveRight_Enable") == 0, "direction flags disabled");
-    Check(values.at(L"ThreeFingerMoveUp_Func") == 2569, "swipe assignment retained");
-    for (const auto *name : {L"Tap_Two_Finger", L"Tap_Two_Finger_Enable", L"Zoom_Enable",
-                             L"SC_Enable", L"Unknown_Enable"}) {
-        Check(values.at(name) == original.at(name), "unrelated setting untouched");
-        Check(!remembered.count(name), "unrelated setting not remembered");
+static DriverValues Original() {
+    DriverValues values{{L"MultiFingerGesture_Enable", 1},
+                        {L"Tap_Two_Finger", 1}, {L"Zoom_Enable", 1},
+                        {L"SC_Enable", 1}, {L"Unknown_Enable", 1}};
+    for (int fingers : {3, 4}) {
+        auto gestures = DriverGestures(fingers);
+        for (int slot = 0; slot < 5; ++slot) {
+            values[gestures[slot].action] = slot == 0 ? 2561 : 2569;
+            values[gestures[slot].enable] = slot == 4 ? 0 : 1;
+        }
+        values[fingers == 3 ? L"ThreeFingerMove_Enable" : L"FourFingerMove_Enable"] = 1;
     }
-    const auto firstRemembered = remembered;
-    SetMultiFingerEnabled(values, remembered, false);
-    Check(remembered == firstRemembered, "repeated disable preserves original assignments");
-    // Both maps are plain values persisted by the application's local settings.
-    auto reopenedValues = values;
-    auto reopenedRemembered = remembered;
-    SetMultiFingerEnabled(reopenedValues, reopenedRemembered, true);
-    Check(reopenedValues == original, "reenable restores exact choices, including disabled ones");
-    Check(reopenedRemembered.empty(), "successful restoration consumes remembered choices");
-    SetMultiFingerEnabled(reopenedValues, reopenedRemembered, true);
-    Check(reopenedValues == original, "repeated enable keeps choices");
-    DriverValues partial{{L"MultiFingerGesture_Enable", 1}, {L"Tap_Three_Finger", 2561}};
-    DriverValues partialRemembered;
-    SetMultiFingerEnabled(partial, partialRemembered, false);
-    Check(partial.size() == 2 && partial.at(L"Tap_Three_Finger") == 7,
-          "missing driver fields are not invented");
-    partial.erase(L"Tap_Three_Finger");
-    SetMultiFingerEnabled(partial, partialRemembered, true);
-    Check(partial.size() == 1, "removed fields are not recreated on restoration");
-    DriverValues empty, emptyRemembered;
-    SetMultiFingerEnabled(empty, emptyRemembered, false);
-    SetMultiFingerEnabled(empty, emptyRemembered, true);
-    Check(empty.empty(), "unsupported driver stays untouched");
-    Check(!MultiFingerField(L"ThreeFingerMoveAnything_Enable"), "unknown driver field rejected");
-
-    // Exercise the production staging path and on-disk format in memory.
+    return values;
+}
+static void Seed(const DriverValues &values, std::array<bool, 2> enabled = {true, true}) {
     saved.clear();
+    for (const auto &entry : values)
+        saved[entry.first] = Dword(entry.second);
     extra.clear();
     appliedSuspended.clear();
     pendingSuspended.clear();
-    for (const auto &entry : original)
-        saved[entry.first] = Dword(entry.second);
-    for (int fingerPage : {1, 2}) {
-        page = fingerPage;
-        const auto tap = DriverGestures(page == 1 ? 3 : 4)[0];
-        SetGestureAction(0, -1);
-        Check(DriverNumber(tap.action) == 7 && DriverNumber(tap.enable) == 0,
-              "individual tap Off neutralizes its action and enable flag");
-        SetGestureAction(0, 2561);
-        Check(DriverNumber(tap.action) == 2561 && DriverNumber(tap.enable) == 1,
-              "individual tap can be reassigned after Off");
-        extra.clear();
-    }
-    SetMultiFinger(false);
-    const auto disabledEdits = extra;
-    SetGestureAction(0, 2561);
-    Check(extra == disabledEdits, "individual actions cannot bypass disabled master");
-    auto changes = Changes();
-    Check(changes.at(L"Tap_Three_Finger") == Dword(7), "app stages Search removal");
-    Check(changes.at(L"Tap_Four_Finger") == Dword(7), "app stages four-finger action removal");
-    Check(Dirty(), "shared disable enables Apply");
-    Check(!changes.count(L"Tap_Two_Finger") && !changes.count(L"Zoom_Enable"),
-          "app excludes two-finger settings from shared disable");
-    SetMultiFinger(true);
-    Check(Changes().empty() && !Dirty(), "toggle off/on before Apply cancels all staged edits");
-    SetMultiFinger(false);
-    // Simulate successful Apply, then a restart, without touching files/registry.
+    appliedDriverEnabled = pendingDriverEnabled = enabled;
+    appliedFive = pendingFive = {true, {FiveDesktop, FiveTaskView, FiveMute, 0, 0}};
+    available.fill(false);
+    loadedAction = -1;
+}
+static void SimulateApplyAndRestart() {
     for (const auto &entry : Changes())
         saved[entry.first] = entry.second;
     extra.clear();
     appliedSuspended = pendingSuspended;
-    auto persisted = Decode(Encode(WithAppSettings({})));
-    auto restored = DecodeSuspended(persisted);
-    Check(restored == pendingSuspended, "remembered choices survive real serialization");
-    Check(DecodeFive(persisted, {}) == appliedFive, "five-finger settings preserved");
-    Check(DecodeSuspended(Decode(Encode(WithAppSettings(saved)))) == pendingSuspended,
-          "typed backups include remembered choices");
-    pendingSuspended = restored;
-    SetMultiFinger(true);
-    auto restoredChanges = Changes();
-    for (const auto &entry : original)
-        if (MultiFingerField(entry.first)) {
-            auto change = restoredChanges.find(entry.first);
-            auto actual = change == restoredChanges.end() ? saved.at(entry.first) : change->second;
-            Check(actual == Dword(entry.second), "app restores exact choices after restart");
+    appliedDriverEnabled = pendingDriverEnabled;
+    auto local = Decode(Encode(WithAppSettings({})));
+    pendingSuspended = DecodeSuspended(local);
+    pendingDriverEnabled = DecodeDriverEnabled(local, {true, true});
+    Check(pendingSuspended == appliedSuspended, "remembered choices survive serialization");
+    Check(pendingDriverEnabled == appliedDriverEnabled, "independent switches survive restart");
+    Check(DecodeFive(local, {}) == appliedFive, "five-finger config stays independent");
+}
+int main() {
+    const auto original = Original();
+    for (int fingers : {3, 4}) {
+        Seed(original);
+        page = fingers - 2;
+        const auto tap = DriverGestures(fingers)[0];
+        SetGestureAction(0, -1);
+        Check(DriverNumber(tap.action) == 7 && DriverNumber(tap.enable) == 0,
+              "individual tap Off neutralizes the assigned action");
+        SetGestureAction(0, 19);
+        Check(DriverNumber(tap.action) == 19 && DriverNumber(tap.enable) == 1,
+              "individual tap can be reassigned");
+        Seed(original);
+        SetFingerGroup(fingers, false);
+        Check(!FingerGroupEnabled(), "current tab is disabled");
+        Check(DriverNumber(tap.action) == 7, "disabled group tap is neutralized");
+        Check(DriverNumber(L"MultiFingerGesture_Enable") == 1,
+              "shared driver gate stays on for enabled sibling");
+        for (const auto &entry : original) {
+            if (FingerGroupField(entry.first, fingers) &&
+                entry.first.find(L"_Enable") != std::wstring::npos)
+                Check(DriverNumber(entry.first) == 0, "all selected group enable fields cleared");
+            if (!FingerGroupField(entry.first, fingers))
+                Check(DriverNumber(entry.first) == entry.second,
+                      "sibling and unrelated driver values unchanged");
         }
-    Check(pendingSuspended.empty() && Dirty(), "restoration stages local-state cleanup");
-    Check(DecodeSuspended({}).empty(), "older settings/backups without metadata supported");
-    for (const auto *name : {L"@Studio.Suspended.Zoom_Enable",
-                             L"@Studio.Suspended.Tap_Three_Finger"}) {
+        Check(appliedFive == pendingFive, "five-finger switch unchanged");
+        const auto disabledEdits = extra;
+        SetGestureAction(0, 2561);
+        Check(extra == disabledEdits, "individual actions cannot bypass disabled group");
+        const auto remembered = pendingSuspended;
+        SetFingerGroup(fingers, false);
+        Check(pendingSuspended == remembered, "repeated disable retains original choices");
+        SetFingerGroup(fingers, true);
+        Check(!Dirty(), "off/on before Apply cancels staged changes");
+        SetFingerGroup(fingers, false);
+        SimulateApplyAndRestart();
+        SetFingerGroup(fingers, true);
+        for (const auto &entry : original)
+            Check(DriverNumber(entry.first) == entry.second, "exact choices restored after restart");
+        Check(pendingSuspended.empty(), "restored group clears its remembered choices");
+    }
+    Seed(original);
+    SetFingerGroup(3, false);
+    SetFingerGroup(4, false);
+    Check(DriverNumber(L"MultiFingerGesture_Enable") == 0, "both groups off closes common gate");
+    SimulateApplyAndRestart();
+    SetFingerGroup(3, true);
+    Check(pendingDriverEnabled == std::array<bool, 2>{true, false}, "only three fingers reenabled");
+    Check(DriverNumber(L"Tap_Three_Finger") == 2561 && DriverNumber(L"Tap_Four_Finger") == 7,
+          "restoring three fingers does not reactivate four-finger tap");
+    Check(DriverNumber(L"FourFingerMove_Enable") == 0, "four-finger swipes remain disabled");
+    Check(!pendingSuspended.count(L"Tap_Three_Finger") &&
+          pendingSuspended.count(L"Tap_Four_Finger"), "sibling restoration state retained");
+    auto backup = Decode(Encode(WithAppSettings(saved)));
+    Check(DecodeSuspended(backup) == appliedSuspended, "typed backup preserves both groups");
+    Check(DecodeDriverEnabled(backup, {true, true}) == appliedDriverEnabled,
+          "typed backup preserves independent switches");
+    SetFingerGroup(4, true);
+    for (const auto &entry : original)
+        Check(DriverNumber(entry.first) == entry.second, "both groups restore original configuration");
+
+    // Migrate pre-1.1.2 files with only the shared flag and remembered fields.
+    Seed(original);
+    auto legacy = saved;
+    legacy[L"MultiFingerGesture_Enable"] = Dword(0);
+    Check(InitialDriverEnabled(legacy, {}) == std::array<bool, 2>{false, false},
+          "old shared-off configuration initializes both switches off");
+    DriverValues legacyRemembered = original;
+    for (auto it = legacyRemembered.begin(); it != legacyRemembered.end();)
+        if (!MultiFingerField(it->first)) it = legacyRemembered.erase(it); else ++it;
+    appliedDriverEnabled = pendingDriverEnabled = InitialDriverEnabled(legacy, legacyRemembered);
+    saved = legacy;
+    appliedSuspended = pendingSuspended = legacyRemembered;
+    SetFingerGroup(3, true);
+    Check(DriverNumber(L"Tap_Three_Finger") == 2561 && DriverNumber(L"Tap_Four_Finger") == 7,
+          "migrated shared-off state can restore only one group");
+    Check(!pendingSuspended.count(L"MultiFingerGesture_Enable"), "obsolete shared snapshot removed");
+    Seed(original, {false, false});
+    saved[L"MultiFingerGesture_Enable"] = Dword(0);
+    SetFingerGroup(4, true);
+    Check(DriverNumber(L"Tap_Three_Finger") == 7 && DriverNumber(L"Tap_Four_Finger") == 2561,
+          "enabling one legacy group neutralizes disabled sibling even without saved metadata");
+
+    DriverValues partial{{L"Tap_Three_Finger", 2561}}, remembered;
+    SetFingerGroupEnabled(partial, remembered, 3, false);
+    Check(partial.size() == 1 && partial.begin()->second == 7, "missing fields not invented");
+    partial.clear();
+    SetFingerGroupEnabled(partial, remembered, 3, true);
+    Check(partial.empty(), "removed fields not recreated");
+    Check(!MultiFingerField(L"ThreeFingerMoveAnything_Enable"), "unknown driver fields rejected");
+    Check(!FingerGroupField(L"Tap_Four_Finger", 3), "group field classification is independent");
+    Check(DecodeSuspended({}).empty(), "old files without remembered choices supported");
+    for (const Snapshot &bad : {
+             Snapshot{{L"@Studio.Suspended.Zoom_Enable", Dword(1)}},
+             Snapshot{{L"@Studio.Suspended.Tap_Three_Finger", Dword(999999)}},
+             Snapshot{{DriverEnableNames[0], Dword(1)}},
+             Snapshot{{DriverEnableNames[0], Dword(2)}, {DriverEnableNames[1], Dword(1)}}}) {
         bool rejected = false;
         try {
-            DecodeSuspended({{name, Dword(999999)}});
-        } catch (const std::exception &) {
-            rejected = true;
-        }
-        Check(rejected, "invalid or unrelated remembered field rejected");
+            DecodeSuspended(bad);
+            DecodeDriverEnabled(bad, {true, true});
+        } catch (const std::exception &) { rejected = true; }
+        Check(rejected, "invalid or incomplete saved configuration rejected");
     }
     std::printf("PASS: %d driver gesture control checks; no registry or input access.\n", checks);
 }

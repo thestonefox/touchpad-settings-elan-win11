@@ -23,12 +23,14 @@ cover three/four-finger tap, per-direction swipe functions and enables,
 plus existing multi-finger and per-finger-count master enables. Action
 codes are explicit in src/TouchpadStudio.cpp; unknown values are rejected.
 
-The shared multi-finger switch explicitly disables all supported 3/4-finger
-tap and swipe enable fields and replaces both tap actions with 7 (No action).
-The tap override is necessary on drivers that still execute the assigned
-tap action with its enable field cleared. Previous choices are stored in
-the private local settings file and included in typed backups, so enabling
-the shared switch restores them. Individual tap Off also writes action 7.
+The three- and four-finger groups have independent app switches. Each
+explicitly disables only its supported tap/swipe enable fields and replaces
+its tap action with 7 (No action). The common MultiFingerGesture_Enable
+field stays on while either group is enabled. Per-count switch states and
+remembered choices are stored in private local settings and typed backups;
+reenabling one group restores only that group's choices. Older shared-off
+files initialize both groups as disabled and retain their saved choices.
+Individual tap Off also writes action 7.
 
 ELAN Control caches settings. Apply verifies the current-session process
 path against System32 ETDCtrl.exe before restarting that process. It does
@@ -47,7 +49,7 @@ Vendor binaries, INF files and disassemblies are not included here.
 Only these exports are used: EstablishConnection, GetTouchPadSize,
 GetCurrentReportIndex, AcquireFingerReport and TerminateConnection.
 The inspected contact record is 64 bytes with five 12-byte contact slots.
-The tested sensor reports 3209 × 2097 coordinates. The app polls contact
+The tested sensor reports 3209 Ã— 2097 coordinates. The app polls contact
 reports, preserves intervening frames and normalizes sensor positions.
 A different/missing API disables capture and the custom recognizer.
 
