@@ -1,0 +1,20 @@
+# Build output and compiler caches
+/build/
+/dist/
+.zig-cache/
+zig-out/
+*.obj
+*.lib
+*.pdb
+*.ilk
+.vs/
+# Personal settings, registry backups and test logs
+TouchpadStudio.settings*
+TouchpadStudio-registration-*.json*
+ELAN-backups/
+*.elanbackup
+/test-results/
+# Editor and OS files
+.vscode/
+Thumbs.db
+Desktop.ini
