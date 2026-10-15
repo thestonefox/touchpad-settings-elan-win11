@@ -29,6 +29,9 @@ try {
     Invoke-Compiler c++ "$root\src\MousePropertiesLauncher.cpp" "$root\src\MousePropertiesLauncher.def" "$build\LauncherResources.obj" @common -shared -o "$output\TouchpadStudio.MouseProperties.dll" -lole32 -lshell32 -lcomctl32 -luser32 -luuid
     Invoke-Compiler c++ "$root\tests\FiveFingerRecognizerTest.cpp" @common -o "$build\FiveFingerRecognizerTest.exe"
     Invoke-Compiler c++ "$root\tests\DriverGestureControlsTest.cpp" @common -fms-extensions -o "$build\DriverGestureControlsTest.exe" -ld2d1 -ldwrite -lwindowscodecs -lole32 -lcomdlg32 -ldwmapi -ladvapi32 -luser32 -lgdi32 -lshell32 -lversion -luuid
+    New-Item -ItemType Directory -Force -Path "$build\elan-reload-fixture" | Out-Null
+    Invoke-Compiler c++ "$root\tests\ElanReloadChild.cpp" @common -municode -o "$build\elan-reload-fixture\ETDCtrl.exe"
+    Invoke-Compiler c++ "$root\tests\ElanReloadTest.cpp" @common -municode -fms-extensions -o "$build\ElanReloadTest.exe" -ld2d1 -ldwrite -lwindowscodecs -lole32 -lcomdlg32 -ldwmapi -ladvapi32 -luser32 -lgdi32 -lshell32 -lversion -luuid
     Invoke-Compiler c++ "$root\tests\MousePropertiesLauncherTest.cpp" @common -municode -o "$build\MousePropertiesLauncherTest.exe" -lole32 -lshell32 -lcomctl32 -luser32 -luuid
     New-Item -ItemType Directory -Force -Path "$output\scripts" | Out-Null
     Copy-Item -LiteralPath "$root\scripts\Manage-MouseProperties.ps1" -Destination "$output\scripts"

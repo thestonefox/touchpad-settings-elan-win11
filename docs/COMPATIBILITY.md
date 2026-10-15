@@ -37,6 +37,10 @@ path against System32 ETDCtrl.exe before restarting that process. It does
 not restart ETDService, the touchpad device or Windows. A reload failure
 can leave valid saved settings waiting for a later Windows restart.
 
+The restarted ETDCtrl.exe receives an explicit System32 working directory.
+It does not inherit the portable app folder, which would otherwise remain
+locked while the ELAN process runs even after Touchpad Studio closes.
+
 ## Contact API
 
 Live capture loads the **installed System32 ETDApi.dll** only after checking

@@ -511,6 +511,18 @@ void WriteLocal(const FiveConfig &cfg, const DriverValues &suspended,
         throw std::runtime_error("Local settings file could not be replaced");
     }
 }
+bool StartElanControl(const std::wstring &directory, PROCESS_INFORMATION &process) {
+    std::wstring path = directory + L"\\ETDCtrl.exe";
+    std::wstring command = L"\"" + path + L"\"";
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
+    startup.dwFlags = STARTF_USESHOWWINDOW;
+    startup.wShowWindow = SW_HIDE;
+    // The long-lived driver process must not inherit the portable app's
+    // working directory, which would keep that folder locked after exit.
+    return CreateProcessW(path.c_str(), &command[0], nullptr, nullptr, FALSE,
+                          CREATE_NO_WINDOW, nullptr, directory.c_str(), &startup, &process) != FALSE;
+}
 void ReloadElan() {
     DWORD session = 0;
     ProcessIdToSessionId(GetCurrentProcessId(), &session);
@@ -538,7 +550,7 @@ void ReloadElan() {
         throw std::runtime_error("Cannot access ELAN Control");
     wchar_t buf[32768];
     DWORD n = 32768;
-    std::wstring path = SysDir() + L"\\ETDCtrl.exe";
+    std::wstring directory = SysDir(), path = directory + L"\\ETDCtrl.exe";
     if (!QueryFullProcessImageNameW(h, 0, buf, &n) || _wcsicmp(buf, path.c_str())) {
         CloseHandle(h);
         throw std::runtime_error("ELAN executable path could not be verified. No process stopped.");
@@ -549,14 +561,8 @@ void ReloadElan() {
     }
     WaitForSingleObject(h, 3000);
     CloseHandle(h);
-    STARTUPINFOW si{};
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;
     PROCESS_INFORMATION pi{};
-    std::wstring cmd = L"\"" + path + L"\"";
-    if (!CreateProcessW(path.c_str(), &cmd[0], nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr,
-                        nullptr, &si, &pi))
+    if (!StartElanControl(directory, pi))
         throw std::runtime_error("ELAN Control did not start. Restart Windows to recover it.");
     CloseHandle(pi.hThread);
     Sleep(300);

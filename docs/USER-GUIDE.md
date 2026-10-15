@@ -37,6 +37,12 @@ A successful reload normally avoids restarting Windows. If reload fails,
 the app reports that settings were saved but a reload failed; restarting
 Windows can make the saved driver settings take effect.
 
+Closing Touchpad Studio exits the app. The existing ELAN Control process
+continues handling driver gestures; it is restarted with a System32 working
+directory so it does not keep the extracted application folder in use.
+If an older version already restarted ELAN Control in that folder, restart
+Windows after closing the app before trying to move or delete the folder.
+
 The five-finger master switch and action choices are local app settings.
 They require the app open or minimized. The shortcut fires after all five
 fingers lift, with timing and movement checks to reduce accidental actions.

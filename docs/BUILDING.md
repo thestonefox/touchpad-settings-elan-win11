@@ -52,6 +52,9 @@ promised because toolchain timestamps and ZIP metadata may vary.
   missing driver fields.
 - Native launcher: COM factory, interfaces, added page, standard page
   preservation, page lifetime and unload. It loads the built DLL directly.
+- ELAN reload launch: a harmless fixture executable checks that the child
+  uses its explicit directory and the parent directory is unchanged. The
+  test never stops, launches or connects to the installed ELAN driver.
 - PowerShell syntax and read-only installation plan.
 
 On the supported laptop, a further **read-only** integration check is available:

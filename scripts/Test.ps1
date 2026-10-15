@@ -5,6 +5,9 @@ $root = Split-Path $PSScriptRoot -Parent
 if ($LASTEXITCODE -ne 0) { throw 'Five-finger recognizer tests failed.' }
 & "$root\build\DriverGestureControlsTest.exe"
 if ($LASTEXITCODE -ne 0) { throw 'Driver gesture control tests failed.' }
+$reloadFixture = (Resolve-Path -LiteralPath "$root\build\elan-reload-fixture").Path
+& "$root\build\ElanReloadTest.exe" $reloadFixture
+if ($LASTEXITCODE -ne 0) { throw 'ELAN process launch tests failed.' }
 $dll = (Resolve-Path -LiteralPath "$OutputDirectory\TouchpadStudio.MouseProperties.dll").Path
 & "$root\build\MousePropertiesLauncherTest.exe" $dll
 if ($LASTEXITCODE -ne 0) { throw 'Mouse Properties COM tests failed.' }
