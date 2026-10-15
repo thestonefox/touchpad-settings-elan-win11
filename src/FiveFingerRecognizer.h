@@ -26,8 +26,9 @@ struct FiveConfig {
     bool enabled = false;
     // Tap, up, down, left, right. Default is entirely inactive.
     std::array<int, 5> actions{};
+    bool swipesEnabled = true;
     bool operator==(const FiveConfig &o) const {
-        return enabled == o.enabled && actions == o.actions;
+        return enabled == o.enabled && actions == o.actions && swipesEnabled == o.swipesEnabled;
     }
     bool operator!=(const FiveConfig &o) const {
         return !(*this == o);
@@ -82,6 +83,8 @@ class FiveFingerRecognizer {
             if (slot < 0 && duration >= 100 && duration <= 550 && maxTravel < .035f)
                 slot = 0;
             int action = slot >= 0 && duration <= 1600 ? cfg.actions[slot] : FiveOff;
+            if (slot > 0 && !cfg.swipesEnabled)
+                action = FiveOff;
             Reset();
             return action;
         }

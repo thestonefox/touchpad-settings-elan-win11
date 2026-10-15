@@ -237,6 +237,7 @@ const wchar_t *FiveNames[] = {L"@Studio.FiveTap", L"@Studio.FiveUp", L"@Studio.F
 Snapshot WithAppSettings(const Snapshot &in) {
     auto out = in;
     out[L"@Studio.FiveEnabled"] = Dword(appliedFive.enabled);
+    out[L"@Studio.FiveSwipesEnabled"] = Dword(appliedFive.swipesEnabled);
     for (int i = 0; i < 5; ++i)
         out[FiveNames[i]] = Dword(appliedFive.actions[i]);
     for (const auto &kv : appliedSuspended)
@@ -247,6 +248,10 @@ Snapshot WithAppSettings(const Snapshot &in) {
 }
 FiveConfig DecodeFive(const Snapshot &s, const FiveConfig &fallback) {
     FiveConfig c = fallback;
+    auto swipes = s.find(L"@Studio.FiveSwipesEnabled");
+    c.swipesEnabled = swipes == s.end() || Number(swipes->second) != 0;
+    if (swipes != s.end() && Number(swipes->second) > 1)
+        throw std::runtime_error("Invalid five-finger swipe setting");
     auto e = s.find(L"@Studio.FiveEnabled");
     if (e != s.end()) {
         if (Number(e->second) > 1)
@@ -484,6 +489,7 @@ void WriteLocal(const FiveConfig &cfg, const DriverValues &suspended,
                 const std::array<bool, 2> &driverEnabled) {
     Snapshot data;
     data[L"@Studio.FiveEnabled"] = Dword(cfg.enabled);
+    data[L"@Studio.FiveSwipesEnabled"] = Dword(cfg.swipesEnabled);
     for (int i = 0; i < 5; ++i)
         data[FiveNames[i]] = Dword(cfg.actions[i]);
     for (const auto &kv : suspended)
@@ -880,7 +886,7 @@ std::wstring MasterName() {
     return page == 1 ? L"ThreeFingerMove_Enable" : L"FourFingerMove_Enable";
 }
 int PageRows() {
-    return page == 0 ? 6 : page == 3 ? 6 : 7;
+    return page == 0 ? 6 : 7;
 }
 void SetDriver(const std::wstring &n, DWORD x) {
     if (!DriverAvailable(n) || !ValidValue(n, Dword(x)))
@@ -1018,8 +1024,10 @@ void DispatchFive(int action) {
 }
 void ChooseAction(int row) {
     bool local = page == 3;
-    int slot = local ? row - 1 : row - 2;
+    int slot = row - 2;
     if (slot < 0 || slot >= 5)
+        return;
+    if (local && !pendingFive.enabled)
         return;
     if (!local && !FingerGroupEnabled())
         return;
@@ -1058,6 +1066,8 @@ void ChooseAction(int row) {
         pendingFive.actions[slot] = value;
         if (value != FiveOff)
             pendingFive.enabled = true;
+        if (slot > 0 && value != FiveOff)
+            pendingFive.swipesEnabled = true;
     } else
         SetGestureAction(slot, value);
     PendingStatus();
@@ -1158,7 +1168,7 @@ void Draw(ID2D1RenderTarget *t) {
     }
     for (int i = 0; i < PageRows(); ++i) {
         float y = RowY(i);
-        bool isToggle = page == 0 || (page == 3 ? i == 0 : i < 2), valid = true, on = false;
+        bool isToggle = page == 0 || i < 2, valid = true, on = false;
         std::wstring label, action;
         if (page == 0) {
             label = Settings[i].title;
@@ -1168,11 +1178,16 @@ void Draw(ID2D1RenderTarget *t) {
             if (i == 0) {
                 label = L"Enable 5-finger shortcuts";
                 on = pendingFive.enabled;
+            } else if (i == 1) {
+                label = L"Swipes";
+                valid = pendingFive.enabled;
+                on = valid && pendingFive.swipesEnabled;
             } else {
                 const wchar_t *names[] = {L"Tap", L"Swipe up", L"Swipe down", L"Swipe left",
                                           L"Swipe right"};
-                label = names[i - 1];
-                action = FiveTitles[pendingFive.actions[i - 1]];
+                label = names[i - 2];
+                valid = pendingFive.enabled;
+                action = valid ? FiveTitles[pendingFive.actions[i - 2]] : L"Off";
             }
         } else if (i < 2) {
             std::wstring n = i == 0 ? L"MultiFingerGesture_Enable" : MasterName();
@@ -1410,7 +1425,10 @@ void Activate(int id) {
             } else if (page == 3) {
                 if (id == 0)
                     pendingFive.enabled = !pendingFive.enabled;
-                else
+                else if (id == 1) {
+                    if (pendingFive.enabled)
+                        pendingFive.swipesEnabled = !pendingFive.swipesEnabled;
+                } else
                     ChooseAction(id);
             } else if (id < 2) {
                 std::wstring n = id == 0 ? L"MultiFingerGesture_Enable" : MasterName();

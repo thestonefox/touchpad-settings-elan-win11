@@ -47,6 +47,7 @@ promised because toolchain timestamps and ZIP metadata may vary.
 
 - Real recognizer code: tap, four swipes, release timing, repeat suppression,
   disabled state, four contacts, long holds, retouches, spreads and resets.
+  Five-finger tap-only mode suppresses all swipes and restores assignments.
 - Driver gesture controls: explicit tap neutralization, per-count disable,
   independent 3/4-finger switches, exact restoration, legacy migration and
   missing driver fields.

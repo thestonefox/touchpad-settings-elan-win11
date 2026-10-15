@@ -192,5 +192,25 @@ int main() {
         } catch (const std::exception &) { rejected = true; }
         Check(rejected, "invalid or incomplete saved configuration rejected");
     }
+    Seed(original);
+    appliedFive.swipesEnabled = false;
+    pendingFive = appliedFive;
+    auto fiveBackup = Decode(Encode(WithAppSettings({})));
+    Check(DecodeFive(fiveBackup, {}).swipesEnabled == false,
+          "five-finger swipe switch survives settings and backup serialization");
+    Check(DecodeFive({}, appliedFive).swipesEnabled,
+          "older five-finger settings retain the original swipe behaviour");
+    bool rejectedSwipe = false;
+    try { DecodeFive({{L"@Studio.FiveSwipesEnabled", Dword(2)}}, {}); }
+    catch (const std::exception &) { rejectedSwipe = true; }
+    Check(rejectedSwipe, "invalid five-finger swipe setting rejected");
+    page = 3;
+    Check(PageRows() == 7, "five-finger layout includes master, swipes and five actions");
+    for (int i = 0; i < 2; ++i) {
+        pendingDriverEnabled[i] = false;
+        SetFingerGroup(i + 3, false);
+    }
+    Check(!pendingFive.swipesEnabled && pendingFive.enabled,
+          "three/four controls preserve five-finger tap-only mode");
     std::printf("PASS: %d driver gesture control checks; no registry or input access.\n", checks);
 }

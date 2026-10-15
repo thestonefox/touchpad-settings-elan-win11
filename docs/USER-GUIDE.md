@@ -48,7 +48,11 @@ directory so it does not keep the extracted application folder in use.
 If an older version already restarted ELAN Control in that folder, restart
 Windows after closing the app before trying to move or delete the folder.
 
-The five-finger master switch and action choices are local app settings.
+The five-finger master switch, Swipes switch and action choices are local
+app settings. Turning Swipes off suppresses all four custom swipe actions
+while keeping the five-finger tap active and preserving swipe assignments.
+All 3/4/5-finger tabs have a main switch, a Swipes switch and individual
+action choices. Choose an assigned swipe action to enable swipes again.
 They require the app open or minimized. The shortcut fires after all five
 fingers lift, with timing and movement checks to reduce accidental actions.
 Held keyboard modifiers suppress shortcuts. Windows may reject input into
@@ -64,7 +68,7 @@ local; the app has no network client or analytics.
 
 The live view requires ETDApi.dll 11.9.4.1. A missing or different version
 disables contact capture and custom five-finger gestures. Compatible
-registry settings can still be edited. Use **ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Reconnect live view**
+registry settings can still be edited. Use **ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Reconnect live view**
 if necessary. Do not replace vendor DLLs just to match this app.
 
 ## Backups and restore
@@ -73,7 +77,7 @@ Apply first saves the current SmartPad registry values with their original
 types and bytes, plus applied five-finger app settings, into **ELAN-backups/**.
 Each `.elanbackup` is tied to the Windows user who created it.
 
-Use **ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Load a backupÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦** to stage supported values from a backup, then
+Use **ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Load a backupÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦** to stage supported values from a backup, then
 click Apply to restore them. Loading alone does not change saved settings.
 The app writes only its supported gesture allowlist; a full snapshot does
 not mean arbitrary registry values can be restored through the UI.

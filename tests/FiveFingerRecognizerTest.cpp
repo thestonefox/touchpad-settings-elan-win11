@@ -82,5 +82,23 @@ int main() {
     Check(r.Feed(lifted, 13200, cfg) == FiveOff, "explicit reset");
     r.Feed(Points(), 14000, cfg);
     Check(r.Feed(lifted, 14200, cfg) == FiveDesktop, "recognition recovers after rejection");
+    auto tapOnly = cfg;
+    tapOnly.swipesEnabled = false;
+    Check(tapOnly != cfg, "swipe switch participates in configuration changes");
+    r.Reset();
+    r.Feed(Points(), 15000, tapOnly);
+    Check(r.Feed(lifted, 15200, tapOnly) == FiveDesktop, "swipes off preserves five-finger tap");
+    for (int d = 0; d < 4; ++d) {
+        r.Reset();
+        r.Feed(Points(), 16000, tapOnly);
+        r.Feed(Points(moves[d][0], moves[d][1]), 16200, tapOnly);
+        Check(r.Feed(lifted, 16300, tapOnly) == FiveOff, "disabled swipe never becomes a tap");
+        r.Reset();
+        r.Feed(Points(), 17000, cfg);
+        r.Feed(Points(moves[d][0], moves[d][1]), 17200, cfg);
+        Check(r.Feed(lifted, 17300, cfg) == cfg.actions[d + 1],
+              "reenabling swipes restores assigned actions");
+    }
+    Check(tapOnly.actions == cfg.actions, "swipe disable retains all assignments");
     std::printf("PASS: %d recognizer checks; no Windows input or registry access.\n", checks);
 }
