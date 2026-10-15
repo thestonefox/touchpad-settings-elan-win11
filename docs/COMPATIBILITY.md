@@ -23,6 +23,13 @@ cover three/four-finger tap, per-direction swipe functions and enables,
 plus existing multi-finger and per-finger-count master enables. Action
 codes are explicit in src/TouchpadStudio.cpp; unknown values are rejected.
 
+The shared multi-finger switch explicitly disables all supported 3/4-finger
+tap and swipe enable fields and replaces both tap actions with 7 (No action).
+The tap override is necessary on drivers that still execute the assigned
+tap action with its enable field cleared. Previous choices are stored in
+the private local settings file and included in typed backups, so enabling
+the shared switch restores them. Individual tap Off also writes action 7.
+
 ELAN Control caches settings. Apply verifies the current-session process
 path against System32 ETDCtrl.exe before restarting that process. It does
 not restart ETDService, the touchpad device or Windows. A reload failure

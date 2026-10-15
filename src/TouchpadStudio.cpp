@@ -28,6 +28,7 @@
 #include <stdexcept>
 #include <sstream>
 #include "FiveFingerRecognizer.h"
+#include "DriverGestureControls.h"
 
 // Standalone x64 Win32 / Direct2D application. No PowerShell or new drivers.
 // ETDApi 11.9.4.1 ABI inspected against this machine's signed vendor DLL.
@@ -187,6 +188,20 @@ bool ValidValue(const std::wstring &n, const Value &v) {
     return x <= 1;
 }
 FiveConfig appliedFive, pendingFive;
+DriverValues appliedSuspended, pendingSuspended;
+const std::wstring SuspendedPrefix = L"@Studio.Suspended.";
+DriverValues DecodeSuspended(const Snapshot &s) {
+    DriverValues result;
+    for (const auto &kv : s) {
+        if (kv.first.compare(0, SuspendedPrefix.size(), SuspendedPrefix) != 0)
+            continue;
+        auto name = kv.first.substr(SuspendedPrefix.size());
+        if (!MultiFingerField(name) || !Allowed(name) || !ValidValue(name, kv.second))
+            throw std::runtime_error("Invalid remembered multi-finger setting");
+        result[name] = Number(kv.second);
+    }
+    return result;
+}
 const wchar_t *FiveTitles[] = {
     L"Off",  L"Show desktop", L"Task view",   L"Previous desktop", L"Next desktop", L"Play / pause",
     L"Mute", L"Volume up",    L"Volume down", L"Previous track",   L"Next track"};
@@ -197,6 +212,8 @@ Snapshot WithAppSettings(const Snapshot &in) {
     out[L"@Studio.FiveEnabled"] = Dword(appliedFive.enabled);
     for (int i = 0; i < 5; ++i)
         out[FiveNames[i]] = Dword(appliedFive.actions[i]);
+    for (const auto &kv : appliedSuspended)
+        out[SuspendedPrefix + kv.first] = Dword(kv.second);
     return out;
 }
 FiveConfig DecodeFive(const Snapshot &s, const FiveConfig &fallback) {
@@ -424,34 +441,39 @@ void ReadLocal() {
     std::wstring file = AppDir() + L"\\TouchpadStudio.settings";
     if (GetFileAttributesW(file.c_str()) == INVALID_FILE_ATTRIBUTES) {
         appliedFive = {};
+        appliedSuspended.clear();
         return;
     }
-    appliedFive = DecodeFive(Decode(ReadBytes(file)), {});
+    auto data = Decode(ReadBytes(file));
+    appliedFive = DecodeFive(data, {});
+    appliedSuspended = DecodeSuspended(data);
 }
-void WriteLocal(const FiveConfig &cfg) {
+void WriteLocal(const FiveConfig &cfg, const DriverValues &suspended) {
     Snapshot data;
     data[L"@Studio.FiveEnabled"] = Dword(cfg.enabled);
     for (int i = 0; i < 5; ++i)
         data[FiveNames[i]] = Dword(cfg.actions[i]);
+    for (const auto &kv : suspended)
+        data[SuspendedPrefix + kv.first] = Dword(kv.second);
     auto b = Encode(data);
     std::wstring file = AppDir() + L"\\TouchpadStudio.settings",
                  tmp = file + L".tmp-" + std::to_wstring(GetCurrentProcessId());
     HANDLE h = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
                            FILE_ATTRIBUTE_NORMAL, nullptr);
     if (h == INVALID_HANDLE_VALUE)
-        throw std::runtime_error("Cannot save the app's five-finger settings");
+        throw std::runtime_error("Cannot save the app's local settings");
     DWORD n = 0;
     bool ok = WriteFile(h, b.data(), DWORD(b.size()), &n, nullptr) && n == b.size() &&
               FlushFileBuffers(h);
     CloseHandle(h);
     if (!ok) {
         DeleteFileW(tmp.c_str());
-        throw std::runtime_error("Five-finger settings could not be saved");
+        throw std::runtime_error("Local settings could not be saved");
     }
     if (!MoveFileExW(tmp.c_str(), file.c_str(),
                      MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
         DeleteFileW(tmp.c_str());
-        throw std::runtime_error("Five-finger settings file could not be replaced");
+        throw std::runtime_error("Local settings file could not be replaced");
     }
 }
 void ReloadElan() {
@@ -772,6 +794,7 @@ void Reset() {
     saved = ReadSettings();
     extra.clear();
     pendingFive = appliedFive;
+    pendingSuspended = appliedSuspended;
     loadedAction = -1;
     for (int i = 0; i < 6; ++i) {
         auto it = saved.find(Settings[i].name);
@@ -788,7 +811,7 @@ void Reset() {
 }
 
 bool Dirty() {
-    return !Changes().empty() || pendingFive != appliedFive;
+    return !Changes().empty() || pendingFive != appliedFive || pendingSuspended != appliedSuspended;
 }
 DWORD DriverNumber(const std::wstring &n) {
     auto x = extra.find(n);
@@ -814,6 +837,34 @@ void SetDriver(const std::wstring &n, DWORD x) {
     if (!DriverAvailable(n) || !ValidValue(n, Dword(x)))
         throw std::runtime_error("This driver setting is unavailable");
     extra[n] = Dword(x);
+}
+bool MultiFingerEnabled() {
+    return DriverAvailable(L"MultiFingerGesture_Enable") &&
+           DriverNumber(L"MultiFingerGesture_Enable") != 0;
+}
+void SetMultiFinger(bool enabled) {
+    DriverValues values;
+    for (const auto &kv : saved)
+        if (MultiFingerField(kv.first) && DriverAvailable(kv.first))
+            values[kv.first] = DriverNumber(kv.first);
+    SetMultiFingerEnabled(values, pendingSuspended, enabled);
+    for (const auto &kv : values)
+        SetDriver(kv.first, kv.second);
+}
+void SetGestureAction(int slot, int value) {
+    if (!MultiFingerEnabled() || slot < 0 || slot >= 5)
+        return;
+    auto g = DriverGestures(page == 1 ? 3 : 4)[slot];
+    SetDriver(g.enable, value < 0 ? 0 : 1);
+    // Some ELAN builds execute tap actions even with the tap enable bit
+    // cleared. Explicitly clear the action as well when choosing Off.
+    if (slot == 0 && value < 0)
+        SetDriver(g.action, DriverNoAction);
+    if (value >= 0) {
+        SetDriver(g.action, DWORD(value));
+        if (slot > 0 && DriverAvailable(MasterName()))
+            SetDriver(MasterName(), 1);
+    }
 }
 void PendingStatus() {
     status = Dirty() ? L"Unsaved" : L"Up to date";
@@ -899,6 +950,8 @@ void ChooseAction(int row) {
     int slot = local ? row - 1 : row - 2;
     if (slot < 0 || slot >= 5)
         return;
+    if (!local && !MultiFingerEnabled())
+        return;
     HMENU m = CreatePopupMenu();
     std::vector<int> codes;
     int selected = 0;
@@ -934,17 +987,8 @@ void ChooseAction(int row) {
         pendingFive.actions[slot] = value;
         if (value != FiveOff)
             pendingFive.enabled = true;
-    } else {
-        auto g = DriverGestures(page == 1 ? 3 : 4)[slot];
-        SetDriver(g.enable, value < 0 ? 0 : 1);
-        if (value >= 0) {
-            SetDriver(g.action, DWORD(value));
-            if (DriverAvailable(L"MultiFingerGesture_Enable"))
-                SetDriver(L"MultiFingerGesture_Enable", 1);
-            if (slot > 0 && DriverAvailable(MasterName()))
-                SetDriver(MasterName(), 1);
-        }
-    }
+    } else
+        SetGestureAction(slot, value);
     PendingStatus();
     InvalidateRect(window, nullptr, FALSE);
 }
@@ -1063,13 +1107,15 @@ void Draw(ID2D1RenderTarget *t) {
             std::wstring n = i == 0 ? L"MultiFingerGesture_Enable" : MasterName();
             label = i == 0 ? L"Multi-finger gestures" : L"Swipes";
             valid = DriverAvailable(n);
+            if (i == 1)
+                valid = valid && MultiFingerEnabled();
             on = valid && DriverNumber(n) == 1;
         } else {
             auto g = DriverGestures(page == 1 ? 3 : 4)[i - 2];
             label = g.title;
-            valid = DriverAvailable(g.action) && DriverAvailable(g.enable);
+            valid = MultiFingerEnabled() && DriverAvailable(g.action) && DriverAvailable(g.enable);
             action = valid ? (DriverNumber(g.enable) ? ActionTitle(DriverNumber(g.action)) : L"Off")
-                           : L"Unavailable";
+                           : MultiFingerEnabled() ? L"Unavailable" : L"Off";
         }
         if (hover == i)
             Fill(t, R(sx - 5, y - 3, sw + 9, 35), 0x19212D, 6);
@@ -1119,7 +1165,7 @@ void Apply() {
         return;
     auto changes = Changes();
     auto before = saved;
-    bool localChanged = pendingFive != appliedFive;
+    bool localChanged = pendingFive != appliedFive || pendingSuspended != appliedSuspended;
     busy = true;
     status = L"Applying...";
     InvalidateRect(window, nullptr, FALSE);
@@ -1130,7 +1176,7 @@ void Apply() {
         wrote = true;
         if (localChanged) {
             try {
-                WriteLocal(pendingFive);
+                WriteLocal(pendingFive, pendingSuspended);
             } catch (...) {
                 if (!changes.empty()) {
                     Snapshot undo;
@@ -1142,6 +1188,7 @@ void Apply() {
                 throw;
             }
             appliedFive = pendingFive;
+            appliedSuspended = pendingSuspended;
         }
         fiveEngine.Reset();
         if (!changes.empty()) {
@@ -1193,8 +1240,10 @@ void LoadBackup() {
         if (source.count(L"Tap_Two_Finger_Enable") && !source.count(L"Tap_Two_Finger"))
             throw std::runtime_error("Backup is missing the tap action");
         auto five = DecodeFive(source, appliedFive);
+        auto suspended = DecodeSuspended(source);
         Reset();
         pendingFive = five;
+        pendingSuspended = suspended;
         for (auto &kv : source)
             if (Allowed(kv.first) && DriverAvailable(kv.first)) {
                 bool basic = false;
@@ -1288,11 +1337,11 @@ void Activate(int id) {
                     ChooseAction(id);
             } else if (id < 2) {
                 std::wstring n = id == 0 ? L"MultiFingerGesture_Enable" : MasterName();
-                if (DriverAvailable(n)) {
+                if (id == 0 && DriverAvailable(n)) {
+                    SetMultiFinger(!MultiFingerEnabled());
+                } else if (id == 1 && MultiFingerEnabled() && DriverAvailable(n)) {
                     DWORD value = DriverNumber(n) ? 0 : 1;
                     SetDriver(n, value);
-                    if (id == 1 && value && DriverAvailable(L"MultiFingerGesture_Enable"))
-                        SetDriver(L"MultiFingerGesture_Enable", 1);
                 }
             } else
                 ChooseAction(id);

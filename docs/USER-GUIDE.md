@@ -16,6 +16,16 @@ master settings. The master switches control actual gesture behaviour.
 Unavailable or unsupported registry values are not invented by the app.
 Legacy actions are labelled because the driver predates Windows 11.
 
+**Multi-finger gestures** is shared by the 3- and 4-finger tabs. Turning it
+off and clicking Apply disables both counts' taps and swipes. Tap actions
+are explicitly set to No action because some ELAN drivers ignore their
+enable flags. The previous assignments and enable states are remembered
+in TouchpadStudio.settings, including across app restarts, and restored
+when the shared switch is enabled and applied again. Individual controls
+are inactive while the shared switch is off. The Swipes switch affects
+only that tab's swipes; choosing Off for an individual tap also clears its
+driver action. Five-finger app shortcuts have their own separate switch.
+
 Driver changes restart only the verified System32 ETDCtrl.exe process in
 the current Windows session. The contact connection pauses and reconnects.
 A successful reload normally avoids restarting Windows. If reload fails,
@@ -56,9 +66,13 @@ Keep backups private: they include your Windows user identifier and local
 configuration. Do not commit them to Git or include them in bug reports.
 Older PowerShell `.clixml` backups are not read by this native application.
 
-Five-finger choices are saved to **TouchpadStudio.settings** beside the EXE.
+Five-finger choices and temporarily disabled 3/4-finger assignments are
+saved to **TouchpadStudio.settings** beside the EXE. This file also contains
+your Windows user identifier; keep it private along with registration JSON
+files and registration-plan output, which can include local paths.
 Copying that file to a different Windows account will fail user validation.
-Deleting it while the app is closed returns custom shortcuts to disabled.
+Deleting it while the app is closed returns custom shortcuts to disabled
+and loses remembered 3/4-finger assignments. It does not reset driver values.
 
 ## Mouse Properties launcher (optional)
 

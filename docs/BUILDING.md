@@ -47,6 +47,8 @@ promised because toolchain timestamps and ZIP metadata may vary.
 
 - Real recognizer code: tap, four swipes, release timing, repeat suppression,
   disabled state, four contacts, long holds, retouches, spreads and resets.
+- Driver gesture controls: explicit tap neutralization, shared disable,
+  exact restoration of enabled/disabled choices and missing driver fields.
 - Native launcher: COM factory, interfaces, added page, standard page
   preservation, page lifetime and unload. It loads the built DLL directly.
 - PowerShell syntax and read-only installation plan.

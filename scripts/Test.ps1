@@ -3,6 +3,8 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 & "$root\build\FiveFingerRecognizerTest.exe"
 if ($LASTEXITCODE -ne 0) { throw 'Five-finger recognizer tests failed.' }
+& "$root\build\DriverGestureControlsTest.exe"
+if ($LASTEXITCODE -ne 0) { throw 'Driver gesture control tests failed.' }
 $dll = (Resolve-Path -LiteralPath "$OutputDirectory\TouchpadStudio.MouseProperties.dll").Path
 & "$root\build\MousePropertiesLauncherTest.exe" $dll
 if ($LASTEXITCODE -ne 0) { throw 'Mouse Properties COM tests failed.' }
