@@ -1,0 +1,39 @@
+name: Windows build and tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Download and verify Zig 0.14.1
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'zig.zip'
+          Invoke-WebRequest 'https://ziglang.org/download/0.14.1/zig-x86_64-windows-0.14.1.zip' -OutFile $archive
+          $expected = '554f5378228923ffd558eac35e21af020c73789d87afeabf4bfd16f2e6feed2c'
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash -ine $expected) {
+            throw 'Zig archive checksum mismatch.'
+          }
+          Expand-Archive $archive -DestinationPath $env:RUNNER_TEMP
+      - name: Build native app, launcher and tests
+        run: |
+          $zig = Join-Path $env:RUNNER_TEMP 'zig-x86_64-windows-0.14.1\zig.exe'
+          .\scripts\Build.ps1 -ZigPath $zig
+      - name: Run hardware-independent tests
+        run: .\scripts\Test.ps1
+      - name: Check portable packaging
+        run: .\scripts\Package.ps1
