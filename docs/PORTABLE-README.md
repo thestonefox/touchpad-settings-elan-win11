@@ -1,4 +1,4 @@
-# Touchpad Studio 1.1.0 — Windows x64
+# Touchpad Studio 1.1.1 — Windows x64
 
 Open **TouchpadStudio.exe** from this extracted, writable folder.
 Read **USER-GUIDE.md** for controls, backups and the optional Mouse Properties
